@@ -3,3 +3,4 @@ typer
 loguru
 appdirs
 textual
+pydantic
