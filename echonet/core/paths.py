@@ -18,4 +18,4 @@ for directory in (LOG_DIR, DATA_DIR):
 LOG_FILE = LOG_DIR / "echonet.log"
 
 # Data Files
-DNS_CONFIGS_DB = DATA_DIR / "database.db"
+DB_FILE = DATA_DIR / "database.db"
