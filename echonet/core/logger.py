@@ -2,7 +2,7 @@ import sys
 
 import loguru
 
-from core.paths import LOG_FILE
+from echonet.core.paths import LOG_FILE
 
 # Assign the loguru logger to a variable
 logger = loguru.logger
