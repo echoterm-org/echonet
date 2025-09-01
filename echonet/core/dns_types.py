@@ -49,12 +49,31 @@ class DnsRecord(BaseModel):
         cls, v: Optional[IPvAnyAddress], info: ValidationInfo
     ) -> Optional[IPvAnyAddress]:
         """
-        Ensure the secondary DNS is not identical to the primary.
-        Prevents redundant configuration.
+        Ensure the secondary DNS is:
+        - Not identical to the primary
+        - Of the same address type (IPv4 or IPv6)
         """
-        if v and v == info.data.get("primary"):
-            raise ValueError("Secondary DNS must be different from primary DNS")
+        primary = info.data.get("primary")
+        if v:
+            if v == primary:
+                raise ValueError("Secondary DNS must be different from primary DNS")
+            if type(v) is not type(primary):
+                raise ValueError(
+                    "Primary and secondary DNS must be the same address family"
+                )
         return v
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def normalize_tags(cls, v: Optional[list[str]]) -> Optional[list[str]]:
+        """Normalize tags to lowercase and remove duplicates."""
+        if v:
+            return list(sorted(set(tag.lower() for tag in v)))
+        return v
+
+    def __str__(self) -> str:
+        sec = f", secondary={self.secondary}" if self.secondary else ""
+        return f"{self.name} (primary={self.primary}{sec})"
 
 
 # Represents a DNS profile: a simple list of DNS records
@@ -74,6 +93,22 @@ class DnsCollection(RootModel[list[DnsRecord]]):
     # Support len(dns_list)
     def __len__(self) -> int:
         return len(self.root)
+
+    def add(self, record: DnsRecord) -> None:
+        """Add a DNS record to the collection."""
+        self.root.append(record)
+
+    def remove(self, name: str) -> None:
+        """Remove a DNS record by its display name."""
+        self.root = [r for r in self.root if r.name != name]
+
+    def to_dict(self) -> list[dict]:
+        """Return a list of DNS records as plain dictionaries."""
+        return [r.model_dump() for r in self.root]
+
+    def to_json(self) -> str:
+        """Return the collection as a JSON string."""
+        return self.model_dump_json()
 
 
 # The complete collection: mapping of profile name -> profile's DNS records
@@ -100,3 +135,19 @@ class DnsList(RootModel[dict[str, DnsCollection]]):
     # Support len(dns_collection)
     def __len__(self) -> int:
         return len(self.root)
+
+    def add_collection(self, name: str, collection: DnsCollection) -> None:
+        """Add a new DNS collection/profile."""
+        self.root[name] = collection
+
+    def remove_collection(self, name: str) -> None:
+        """Remove a DNS collection/profile by name."""
+        self.root.pop(name, None)
+
+    def to_dict(self) -> dict:
+        """Return the entire DNS list as a plain dictionary."""
+        return {name: coll.to_dict() for name, coll in self.root.items()}
+
+    def to_json(self) -> str:
+        """Return the entire DNS list as a JSON string."""
+        return self.model_dump_json()
