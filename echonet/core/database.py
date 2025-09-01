@@ -15,13 +15,16 @@ class SqliteDB:
         - Context manager support
     """
 
-    def __init__(self, db_path: str | Path) -> None:
+    def __init__(self, db_path: str | Path, init_script: str | None = None) -> None:
         """
         Args:
             db_path: Path to SQLite database file. Use ':memory:' for in-memory DB.
         """
         self._conn = sqlite3.connect(db_path)
         self._conn.row_factory = sqlite3.Row
+
+        if init_script:
+            self.execute(init_script, commit=True)
 
     def __enter__(self) -> "SqliteDB":
         """Allows use in `with` statements."""
