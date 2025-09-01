@@ -6,35 +6,36 @@ from typing import Any
 
 class SqliteDB:
     """
-    Lightweight SQLite database helper class.
+    Lightweight SQLite database helper class with connection reuse.
 
-    This class wraps Python's built-in `sqlite3` module to simplify
-    CRUD operations by providing:
-      - Automatic connection management
-      - Safe parameter binding (avoiding SQL injection)
-      - Row objects as dict-like `sqlite3.Row`
-      - Convenience methods (`insert`, `select_all`, `select_one`)
-
-    Example:
-    ```py
-        db = SqliteDB("example.db")
-        db.insert("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)")
-        db.insert("INSERT INTO users (name) VALUES (?)", ("Alice",))
-        rows = db.select_all("SELECT * FROM users")
-        for row in rows:
-            print(dict(row))
-    ```
+    Features:
+        - Persistent connection for better performance
+        - Safe parameter binding (avoids SQL injection)
+        - Dict-like result rows (sqlite3.Row)
+        - Context manager support
     """
 
     def __init__(self, db_path: str | Path) -> None:
         """
-        Initialize the database helper.
-
         Args:
-            db_path (str): Path to the SQLite database file. Use ':memory:' for
-                           an in‑memory database.
+            db_path: Path to SQLite database file. Use ':memory:' for in-memory DB.
         """
-        self._path = db_path
+        self._conn = sqlite3.connect(db_path)
+        self._conn.row_factory = sqlite3.Row
+
+    def __enter__(self) -> "SqliteDB":
+        """Allows use in `with` statements."""
+        return self
+
+    def __exit__(self) -> None:
+        """Closes the DB connection on exit."""
+        self.close()
+
+    def close(self) -> None:
+        """Close the database connection."""
+        if self._conn:
+            self._conn.close()
+            self._conn = None
 
     def execute(
         self,
@@ -43,72 +44,43 @@ class SqliteDB:
         commit: bool = False,
         fetchone: bool = False,
         fetchall: bool = False,
+        as_dict: bool = False,
     ) -> Any | list[Any] | None:
         """
         Execute a SQL query with optional commit and fetch options.
 
         Args:
-            query (str): The SQL statement to execute (use `?` placeholders for parameters).
-            params (tuple, optional): Parameters bound to the SQL query. Defaults to ().
-            commit (bool, optional): Whether to commit the transaction. Needed for INSERT/UPDATE/DELETE.
-            fetchone (bool, optional): If True, fetch a single row from results.
-            fetchall (bool, optional): If True, fetch all rows from results.
+            query: SQL statement (use `?` placeholders for parameters).
+            params: Parameters bound to the SQL query.
+            commit: If True, commit the transaction.
+            fetchone: If True, fetch a single row.
+            fetchall: If True, fetch all rows.
+            as_dict: If True, return results as plain dict(s) instead of sqlite3.Row.
 
         Returns:
-            Any | list[Any] | None: Result row(s) if `fetchone` or `fetchall` is set,
-                                    otherwise None.
-
-        Notes:
-            - Automatically enables `sqlite3.Row` for dict-style row access.
-            - Use only one of `fetchone` or `fetchall` per call for clarity.
+            One row, list of rows, or None.
         """
-        with sqlite3.connect(self._path) as conn:
-            conn.row_factory = sqlite3.Row  # enables dict-like column access
-            with closing(conn.cursor()) as cur:
-                cur.execute(query, params)
+        with closing(self._conn.cursor()) as cur:
+            cur.execute(query, params)
+            if commit:
+                self._conn.commit()
 
-                # Commit if explicitly requested
-                if commit:
-                    conn.commit()
+            if fetchone:
+                row = cur.fetchone()
+                return dict(row) if as_dict else row
 
-                # Fetch results if required
-                if fetchone:
-                    return cur.fetchone()
-                if fetchall:
-                    return cur.fetchall()
+            if fetchall:
+                rows = cur.fetchall()
+                return [dict(row) for row in rows] if as_dict else rows
 
     def insert(self, query: str, params: tuple = ()) -> None:
-        """
-        Execute an INSERT/UPDATE/DELETE type query with commit.
-
-        Args:
-            query (str): SQL statement with placeholders (`?`).
-            params (tuple): Parameter values.
-        """
+        """Execute INSERT/UPDATE/DELETE."""
         self.execute(query, params, commit=True)
 
-    def select_all(self, query: str, params: tuple = ()) -> list[Any] | None:
-        """
-        Fetch all rows matching a SELECT query.
-
-        Args:
-            query (str): SQL SELECT statement.
-            params (tuple): Parameter values.
-
-        Returns:
-            list[Any] | None: List of `sqlite3.Row` objects.
-        """
-        return self.execute(query, params, fetchall=True)
-
     def select_one(self, query: str, params: tuple = ()) -> Any:
-        """
-        Fetch a single row matching a SELECT query.
+        """Fetch a single row for a SELECT query."""
+        return self.execute(query, params, fetchone=True, as_dict=True)
 
-        Args:
-            query (str): SQL SELECT statement.
-            params (tuple): Parameter values.
-
-        Returns:
-            Any: A single `sqlite3.Row` object, or None if no match.
-        """
-        return self.execute(query, params, fetchone=True)
+    def select_all(self, query: str, params: tuple = ()) -> list[Any] | None:
+        """Fetch all rows for a SELECT query."""
+        return self.execute(query, params, fetchall=True, as_dict=True)
