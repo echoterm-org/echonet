@@ -75,7 +75,7 @@ class SqliteDB:
 
             if fetchone:
                 row = cur.fetchone()
-                return dict(row) if as_dict else row
+                return dict(row) if row and as_dict else row
 
             if fetchall:
                 rows = cur.fetchall()
