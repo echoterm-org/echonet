@@ -65,6 +65,9 @@ class SqliteDB:
         Returns:
             One row, list of rows, or None.
         """
+        if not self._conn:
+            return
+
         with closing(self._conn.cursor()) as cur:
             cur.execute(query, params)
             if commit:
