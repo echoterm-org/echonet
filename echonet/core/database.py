@@ -24,7 +24,9 @@ class SqliteDB:
         self._conn.row_factory = sqlite3.Row
 
         if init_script:
-            self.execute(init_script, commit=True)
+            with closing(self._conn.cursor()) as cur:
+                cur.executescript(init_script)
+                self._conn.commit()
 
     def __enter__(self) -> "SqliteDB":
         """Allows use in `with` statements."""
