@@ -1,7 +1,7 @@
 import sqlite3
 from contextlib import closing
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 
 class SqliteDB:
@@ -15,7 +15,7 @@ class SqliteDB:
         - Context manager support
     """
 
-    def __init__(self, db_path: str | Path, init_script: str | None = None) -> None:
+    def __init__(self, db_path: str | Path, init_script: Optional[str] = None) -> None:
         """
         Args:
             db_path: Path to SQLite database file. Use ':memory:' for in-memory DB.
@@ -50,7 +50,7 @@ class SqliteDB:
         fetchone: bool = False,
         fetchall: bool = False,
         as_dict: bool = False,
-    ) -> Any | list[Any] | None:
+    ) -> Optional[Any | list[Any]]:
         """
         Execute a SQL query with optional commit and fetch options.
 
@@ -89,6 +89,6 @@ class SqliteDB:
         """Fetch a single row for a SELECT query."""
         return self.execute(query, params, fetchone=True, as_dict=True)
 
-    def select_all(self, query: str, params: tuple = ()) -> list[Any] | None:
+    def select_all(self, query: str, params: tuple = ()) -> Optional[list[Any]]:
         """Fetch all rows for a SELECT query."""
         return self.execute(query, params, fetchall=True, as_dict=True)
