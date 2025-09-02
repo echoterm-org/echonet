@@ -10,9 +10,9 @@ CREATE TABLE IF NOT EXISTS dns_records (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     list_id INTEGER NOT NULL,
     name TEXT NOT NULL,
-    primary TEXT NOT NULL CHECK (primary != ''),
-    secondary TEXT,
-    desc TEXT,
+    primary_ip TEXT NOT NULL CHECK (primary_ip != ''),
+    secondary_ip TEXT,
+    description TEXT,
     tags TEXT,
     FOREIGN KEY (list_id) REFERENCES dns_lists (id) ON DELETE CASCADE
 );
